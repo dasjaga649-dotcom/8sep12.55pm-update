@@ -658,7 +658,6 @@ function App() {
 
 
   if (currentPage === 'client') {
-    const showContact = (() => { try { return new URLSearchParams(window.location.search).has('contact') || new URLSearchParams(window.location.search).has('showContact'); } catch { return false; } })();
     return (
       <div className="client-page">
 
