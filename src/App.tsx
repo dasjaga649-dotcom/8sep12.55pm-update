@@ -3,7 +3,7 @@ import { marked } from 'marked';
 import './App.css';
 import { jsPDF } from 'jspdf';
 import { Document as DocxDocument, Packer, Paragraph, Table as DocxTable, TableRow, TableCell, WidthType, HeadingLevel, TextRun, ImageRun } from 'docx';
-import { User, Building, Settings, Briefcase, BarChart, Trophy, Laptop, Phone, Mail, RefreshCw } from "lucide-react";
+import { User, Building, Settings, Briefcase, BarChart, Trophy, Laptop, Phone } from "lucide-react";
 import gifOverrides, { GifOverridesMap, GifOverride } from './gif-overrides';
 import lottie from 'lottie-web';
 
@@ -68,7 +68,6 @@ interface Message {
   response?: BotResponse;
   query?: string; // Store the original user question for bot messages
   errorKind?: ErrorKind;
-  contactForm?: boolean; // render inline contact form in chat
 }
 
 interface BotResponse {
@@ -435,17 +434,14 @@ function App() {
     // Daily limit guard: max 10 per day
     const current = loadDaily();
     if (current.count >= 10) {
-      // Inline contact form message instead of modal
       setCurrentPage('chat');
       const limitMsg: Message = {
         id: Date.now(),
-        text: "Daily limit reached. Please share your details below and our HR will contact you.",
+        text: "Daily limit reached. Please try again tomorrow or contact sales@hutechsolutions.com.",
         isUser: false,
-        timestamp: new Date(),
-        contactForm: true
+        timestamp: new Date()
       };
       setMessages(prev => [...prev, limitMsg]);
-      // Reset sending guard so user can interact further (e.g., fill the form)
       sendingRef.current = false;
       setIsLoading(false);
       return;
@@ -711,11 +707,6 @@ function App() {
             </form>
           </div>
 
-          {showContact && (
-            <div className="mt-6">
-              <InlineContactForm />
-            </div>
-          )}
 
           {/* Question Cards - Horizontal Scroll */}
           <div className="question-cards-container">
@@ -1577,13 +1568,8 @@ const BotMessage: React.FC<{
           <RelatedContentCarousel items={response.related_content} />
         )}
 
-        {/* Inline Contact Form for limit reached */}
-        {message.contactForm && (
-          <InlineContactForm />
-        )}
-
-        {/* Main Answer with inline GIF when applicable */}
-        {message.text && !message.contactForm && (() => {
+        {/* Main Answer */}
+        {message.text && (() => {
           const fullHtml = safeRenderMarkdown(
             renderIcons(
               renderTables(message.text, response?.tables || [])
@@ -1630,7 +1616,7 @@ const BotMessage: React.FC<{
         })()}
 
         {/* Action Buttons - Hide for welcome message */}
-        {message.text && !message.contactForm && message.id !== 1 && !message.errorKind && (
+        {message.text && message.id !== 1 && !message.errorKind && (
           <MessageActions message={message} />
         )}
 
