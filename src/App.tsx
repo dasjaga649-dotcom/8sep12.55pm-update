@@ -1782,6 +1782,13 @@ const InlineContactForm: React.FC = () => {
           type={type}
           value={value}
           onChange={handleChange}
+          onBlur={(e) => {
+            const next = e.relatedTarget as HTMLElement | null;
+            // If focus moved to nowhere or a non-input element, restore focus to allow continuous typing
+            if (!next || (next.tagName !== 'INPUT' && next.tagName !== 'TEXTAREA')) {
+              try { inputRef.current?.focus({ preventScroll: true } as any); } catch { inputRef.current?.focus(); }
+            }
+          }}
           autoComplete={autoComplete}
           required={required}
           inputMode={inputMode}
