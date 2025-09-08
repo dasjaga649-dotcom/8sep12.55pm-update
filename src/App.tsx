@@ -1580,44 +1580,51 @@ const BotMessage: React.FC<{
         )}
 
         {/* Main Answer with inline GIF when applicable */}
-        {message.text && !message.contactForm && (
-          <div className={`p-4 rounded-xl prose text-gray-800 ${answerImages.length ? 'inline-images-hidden' : ''}`}>
-            <div ref={answerRef} className="answer-html" dangerouslySetInnerHTML={{
-              __html: safeRenderMarkdown(
-                renderIcons(
-                  renderTables(message.text, response?.tables || [])
-                )
-              )
-            }} />
-            {answerImages.length > 0 && !message.errorKind && (
-              <AnswerImagesCarousel images={answerImages} />
-            )}
-            {/* Error GIF based on error kind */}
-            {message.errorKind && (
-              <div className="px-4 mb-4 answer-gif-wrapper">
-                <img
-                  src={ERROR_GIFS[message.errorKind] || ERROR_GIFS.unknown_error}
-                  alt={message.errorKind.replace(/_/g, ' ')}
-                  className="answer-gif rounded-lg"
-                  onError={(e) => {
-                    const fallback = 'data:image/gif;base64,R0lGODlhAQABAPAAAP///wAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==';
-                    const el = e.currentTarget as HTMLImageElement;
-                    if (el.src !== fallback) el.src = fallback;
-                  }}
+        {message.text && !message.contactForm && (() => {
+          const fullHtml = safeRenderMarkdown(
+            renderIcons(
+              renderTables(message.text, response?.tables || [])
+            )
+          );
+          const firstMatch = /<img[^>]*>/i.exec(fullHtml);
+          const beforeHtml = firstMatch ? fullHtml.slice(0, firstMatch.index || 0) : fullHtml;
+          const afterHtml = firstMatch ? fullHtml.slice(firstMatch.index || 0).replace(/<img[^>]*>/gi, '') : null;
+          return (
+            <div className="p-4 rounded-xl prose text-gray-800">
+              <div ref={answerRef} className="answer-html" dangerouslySetInnerHTML={{ __html: beforeHtml }} />
+              {answerImages.length > 0 && !message.errorKind && (
+                <AnswerImagesCarousel images={answerImages} />
+              )}
+              {afterHtml !== null && (
+                <div className="answer-html" dangerouslySetInnerHTML={{ __html: afterHtml }} />
+              )}
+              {/* Error GIF based on error kind */}
+              {message.errorKind && (
+                <div className="px-4 mb-4 answer-gif-wrapper">
+                  <img
+                    src={ERROR_GIFS[message.errorKind] || ERROR_GIFS.unknown_error}
+                    alt={message.errorKind.replace(/_/g, ' ')}
+                    className="answer-gif rounded-lg"
+                    onError={(e) => {
+                      const fallback = 'data:image/gif;base64,R0lGODlhAQABAPAAAP///wAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==';
+                      const el = e.currentTarget as HTMLImageElement;
+                      if (el.src !== fallback) el.src = fallback;
+                    }}
+                  />
+                </div>
+              )}
+              {/* Context GIF only when not an error */}
+              {message.id !== 1 && !message.errorKind && (
+                <AnswerGifSmart
+                  query={message.query}
+                  answer={message.text}
+                  related={response?.related_content}
+                  hasInlineImage={hasInlineImage}
                 />
-              </div>
-            )}
-            {/* Context GIF only when not an error */}
-            {message.id !== 1 && !message.errorKind && (
-              <AnswerGifSmart
-                query={message.query}
-                answer={message.text}
-                related={response?.related_content}
-                hasInlineImage={hasInlineImage}
-              />
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          );
+        })()}
 
         {/* Action Buttons - Hide for welcome message */}
         {message.text && !message.contactForm && message.id !== 1 && !message.errorKind && (
