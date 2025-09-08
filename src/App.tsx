@@ -1752,20 +1752,7 @@ const InlineContactForm: React.FC = () => {
   }> = ({ id, type = 'text', label, value, onChange, icon, autoComplete, required, inputMode }) => {
     const inputRef = useRef<HTMLInputElement | null>(null);
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const el = e.currentTarget;
-      onChange(el.value);
-      // Keep focus and caret even if something else on the page tries to steal it
-      requestAnimationFrame(() => {
-        const node = inputRef.current;
-        if (!node) return;
-        if (document.activeElement !== node) {
-          try { (node as any).focus({ preventScroll: true }); } catch { node.focus(); }
-        }
-        try {
-          const len = node.value.length;
-          node.setSelectionRange(len, len);
-        } catch {}
-      });
+      onChange(e.currentTarget.value);
     };
     return (
       <div className="relative">
