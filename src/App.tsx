@@ -1976,7 +1976,21 @@ const RelatedContentCarousel: React.FC<{ items: RelatedContent[] }> = ({ items }
 const AnswerImagesCarousel: React.FC<{ images: string[] }> = ({ images }) => {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const [validImages, setValidImages] = useState<string[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Preload and keep only valid image URLs
+  useEffect(() => {
+    let isMounted = true;
+    const uniq = Array.from(new Set(images)).filter(Boolean);
+    const preload = (src: string) => new Promise<boolean>((resolve) => { const im = new Image(); im.onload = () => resolve(true); im.onerror = () => resolve(false); im.src = src; });
+    (async () => {
+      const pairs = await Promise.all(uniq.map(async (u) => [(await preload(u)), u] as const));
+      const ok = pairs.filter(p => p[0]).map(p => p[1]);
+      if (isMounted) setValidImages(ok);
+    })();
+    return () => { isMounted = false; };
+  }, [images]);
 
   const onScroll = () => {
     const el = containerRef.current; if (!el) return;
@@ -1987,9 +2001,12 @@ const AnswerImagesCarousel: React.FC<{ images: string[] }> = ({ images }) => {
     const el = containerRef.current; if (!el) return;
     el.addEventListener('scroll', onScroll); onScroll();
     return () => el.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [validImages.length]);
 
   const scrollBy = (dx: number) => containerRef.current?.scrollBy({ left: dx, behavior: 'smooth' });
+
+  // If none are valid, render nothing (avoid blank cards)
+  if (!validImages.length) return null;
 
   return (
     <div className="answer-image-carousel-wrapper">
@@ -1997,9 +2014,14 @@ const AnswerImagesCarousel: React.FC<{ images: string[] }> = ({ images }) => {
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
       </button>
       <div ref={containerRef} className="answer-images-horizontal">
-        {images.map((src, i) => (
+        {validImages.map((src, i) => (
           <div key={`${src}-${i}`} className="answer-image-card">
-            <img src={src} alt={`image ${i+1}`} className="answer-image" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+            <img
+              src={src}
+              alt={`image ${i+1}`}
+              className="answer-image"
+              onError={() => setValidImages(prev => prev.filter(s => s !== src))}
+            />
           </div>
         ))}
       </div>
