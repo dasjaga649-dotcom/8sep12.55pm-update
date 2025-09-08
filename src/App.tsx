@@ -445,6 +445,9 @@ function App() {
         contactForm: true
       };
       setMessages(prev => [...prev, limitMsg]);
+      // Reset sending guard so user can interact further (e.g., fill the form)
+      sendingRef.current = false;
+      setIsLoading(false);
       return;
     }
     const newCount = current.count + 1;
@@ -808,8 +811,8 @@ function App() {
               <button
                 type="submit"
                 className={`chat-send-button${isLoading ? ' searching' : ''}`}
-                disabled={isLoading || dailyCount >= 10}
-                title={dailyCount >= 10 ? 'Daily question limit reached' : undefined}
+                disabled={isLoading}
+                title={dailyCount >= 10 ? 'Daily limit reached — click to open contact form' : undefined}
               >
                 {isLoading ? (
                   <div className="searching-animation" aria-label="Loading">
