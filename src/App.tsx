@@ -1661,6 +1661,20 @@ const InlineContactForm: React.FC = () => {
   const [captchaInput, setCaptchaInput] = useState('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  // Temporarily disable chat input while the contact form is visible to prevent unintended focus switches
+  useEffect(() => {
+    const chatInput = document.getElementById('user-input') as HTMLInputElement | null;
+    const chatSend = document.querySelector('.chat-send-button') as HTMLButtonElement | null;
+    const prevDisabledInput = chatInput?.disabled ?? undefined;
+    const prevDisabledBtn = chatSend?.disabled ?? undefined;
+    if (chatInput) chatInput.disabled = true;
+    if (chatSend) chatSend.disabled = true;
+    return () => {
+      if (chatInput && prevDisabledInput !== undefined) chatInput.disabled = prevDisabledInput;
+      if (chatSend && prevDisabledBtn !== undefined) chatSend.disabled = prevDisabledBtn;
+    };
+  }, []);
+
   const makeText = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
     let out = '';
