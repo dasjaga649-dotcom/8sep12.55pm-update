@@ -1665,13 +1665,17 @@ const InlineContactForm: React.FC = () => {
   useEffect(() => {
     const chatInput = document.getElementById('user-input') as HTMLInputElement | null;
     const chatSend = document.querySelector('.chat-send-button') as HTMLButtonElement | null;
+    const clientSearch = document.querySelector('.client-search-input') as HTMLInputElement | null;
     const prevDisabledInput = chatInput?.disabled ?? undefined;
     const prevDisabledBtn = chatSend?.disabled ?? undefined;
+    const prevDisabledClient = clientSearch?.disabled ?? undefined;
     if (chatInput) chatInput.disabled = true;
     if (chatSend) chatSend.disabled = true;
+    if (clientSearch) clientSearch.disabled = true;
     return () => {
       if (chatInput && prevDisabledInput !== undefined) chatInput.disabled = prevDisabledInput;
       if (chatSend && prevDisabledBtn !== undefined) chatSend.disabled = prevDisabledBtn;
+      if (clientSearch && prevDisabledClient !== undefined) clientSearch.disabled = prevDisabledClient;
     };
   }, []);
 
