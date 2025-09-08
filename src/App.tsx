@@ -1812,13 +1812,16 @@ const InlineContactForm: React.FC = () => {
 
             <div className="relative">
               <textarea
-                id="message"
-                rows={4}
-                value={form.message}
-                onChange={(e) => setForm({ ...form, message: e.target.value })}
-                className="peer w-full rounded-xl border border-gray-200 bg-white p-3 pt-5 text-sm text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder=" "
-              />
+        id="message"
+        name="message"
+        rows={4}
+        value={form.message}
+        onChange={(e) => setForm({ ...form, message: e.target.value })}
+        onKeyDown={(e) => e.stopPropagation()}
+        onInput={(e) => e.stopPropagation()}
+        className="peer w-full rounded-xl border border-gray-200 bg-white p-3 pt-5 text-sm text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        placeholder=" "
+      />
               <label htmlFor="message" className="pointer-events-none absolute left-3 top-3 bg-white px-1 text-sm text-gray-500 transition-all peer-placeholder-shown:top-3 peer-focus:-top-2 peer-focus:text-xs peer-focus:text-blue-600 peer-[:not(:placeholder-shown)]:-top-2 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:text-gray-600">Message</label>
             </div>
 
