@@ -1739,25 +1739,48 @@ const InlineContactForm: React.FC = () => {
 
   const Field: React.FC<{
     id: string; type?: string; label: string; value: string; onChange: (v: string) => void; icon: React.ReactNode; autoComplete?: string; required?: boolean; inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
-  }> = ({ id, type = 'text', label, value, onChange, icon, autoComplete, required, inputMode }) => (
-    <div className="relative">
-      <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">{icon}</div>
-      <input
-        id={id}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        autoComplete={autoComplete}
-        required={required}
-        inputMode={inputMode}
-        className="peer w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 py-3 text-sm text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        placeholder=" "
-      />
-      <label htmlFor={id} className="pointer-events-none absolute left-10 top-1/2 -translate-y-1/2 bg-white px-1 text-sm text-gray-500 transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-gray-400 peer-focus:-top-2 peer-focus:text-xs peer-focus:text-blue-600 peer-placeholder-shown:-translate-y-1/2 peer-focus:translate-y-0 peer-[:not(:placeholder-shown)]:-top-2 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:text-gray-600 peer-[:not(:placeholder-shown)]:translate-y-0">
-        {label}
-      </label>
-    </div>
-  );
+  }> = ({ id, type = 'text', label, value, onChange, icon, autoComplete, required, inputMode }) => {
+    const inputRef = useRef<HTMLInputElement | null>(null);
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const el = e.currentTarget;
+      onChange(el.value);
+      // Keep focus and caret even if something else on the page tries to steal it
+      requestAnimationFrame(() => {
+        const node = inputRef.current;
+        if (!node) return;
+        if (document.activeElement !== node) {
+          try { (node as any).focus({ preventScroll: true }); } catch { node.focus(); }
+        }
+        try {
+          const len = node.value.length;
+          node.setSelectionRange(len, len);
+        } catch {}
+      });
+    };
+    return (
+      <div className="relative">
+        <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">{icon}</div>
+        <input
+          ref={inputRef}
+          id={id}
+          name={id}
+          type={type}
+          value={value}
+          onChange={handleChange}
+          onKeyDown={(e) => e.stopPropagation()}
+          onInput={(e) => e.stopPropagation()}
+          autoComplete={autoComplete}
+          required={required}
+          inputMode={inputMode}
+          className="peer w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 py-3 text-sm text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          placeholder=" "
+        />
+        <label htmlFor={id} className="pointer-events-none absolute left-10 top-1/2 -translate-y-1/2 bg-white px-1 text-sm text-gray-500 transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-gray-400 peer-focus:-top-2 peer-focus:text-xs peer-focus:text-blue-600 peer-placeholder-shown:-translate-y-1/2 peer-focus:translate-y-0 peer-[:not(:placeholder-shown)]:-top-2 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:text-gray-600 peer-[:not(:placeholder-shown)]:translate-y-0">
+          {label}
+        </label>
+      </div>
+    );
+  };
 
   return (
     <div className="px-4">
