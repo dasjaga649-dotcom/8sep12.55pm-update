@@ -1777,8 +1777,6 @@ const InlineContactForm: React.FC = () => {
           type={type}
           value={value}
           onChange={handleChange}
-          onKeyDown={(e) => e.stopPropagation()}
-          onInput={(e) => e.stopPropagation()}
           autoComplete={autoComplete}
           required={required}
           inputMode={inputMode}
@@ -1827,8 +1825,6 @@ const InlineContactForm: React.FC = () => {
         rows={4}
         value={form.message}
         onChange={(e) => setForm({ ...form, message: e.target.value })}
-        onKeyDown={(e) => e.stopPropagation()}
-        onInput={(e) => e.stopPropagation()}
         className="peer w-full rounded-xl border border-gray-200 bg-white p-3 pt-5 text-sm text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         placeholder=" "
       />
