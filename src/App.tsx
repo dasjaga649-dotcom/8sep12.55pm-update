@@ -3,7 +3,7 @@ import { marked } from 'marked';
 import './App.css';
 import { jsPDF } from 'jspdf';
 import { Document as DocxDocument, Packer, Paragraph, Table as DocxTable, TableRow, TableCell, WidthType, HeadingLevel, TextRun, ImageRun } from 'docx';
-import { User, Building, Settings, Briefcase, BarChart, Trophy, Laptop, Phone, Mail, RefreshCw } from "lucide-react";
+import { User, Building, Settings, Briefcase, BarChart, Trophy, Laptop, Phone } from "lucide-react";
 import gifOverrides, { GifOverridesMap, GifOverride } from './gif-overrides';
 import lottie from 'lottie-web';
 
@@ -68,7 +68,6 @@ interface Message {
   response?: BotResponse;
   query?: string; // Store the original user question for bot messages
   errorKind?: ErrorKind;
-  contactForm?: boolean; // render inline contact form in chat
 }
 
 interface BotResponse {
@@ -435,16 +434,16 @@ function App() {
     // Daily limit guard: max 10 per day
     const current = loadDaily();
     if (current.count >= 10) {
-      // Inline contact form message instead of modal
       setCurrentPage('chat');
       const limitMsg: Message = {
         id: Date.now(),
-        text: "Daily limit reached. Please share your details below and our HR will contact you.",
+        text: "Daily limit reached. Please try again tomorrow or contact sales@hutechsolutions.com.",
         isUser: false,
-        timestamp: new Date(),
-        contactForm: true
+        timestamp: new Date()
       };
       setMessages(prev => [...prev, limitMsg]);
+      sendingRef.current = false;
+      setIsLoading(false);
       return;
     }
     const newCount = current.count + 1;
@@ -659,7 +658,6 @@ function App() {
 
 
   if (currentPage === 'client') {
-    const showContact = (() => { try { return new URLSearchParams(window.location.search).has('contact') || new URLSearchParams(window.location.search).has('showContact'); } catch { return false; } })();
     return (
       <div className="client-page">
 
@@ -708,11 +706,6 @@ function App() {
             </form>
           </div>
 
-          {showContact && (
-            <div className="mt-6">
-              <InlineContactForm />
-            </div>
-          )}
 
           {/* Question Cards - Horizontal Scroll */}
           <div className="question-cards-container">
@@ -808,8 +801,8 @@ function App() {
               <button
                 type="submit"
                 className={`chat-send-button${isLoading ? ' searching' : ''}`}
-                disabled={isLoading || dailyCount >= 10}
-                title={dailyCount >= 10 ? 'Daily question limit reached' : undefined}
+                disabled={isLoading}
+                title={dailyCount >= 10 ? 'Daily limit reached — click to open contact form' : undefined}
               >
                 {isLoading ? (
                   <div className="searching-animation" aria-label="Loading">
@@ -1574,53 +1567,55 @@ const BotMessage: React.FC<{
           <RelatedContentCarousel items={response.related_content} />
         )}
 
-        {/* Inline Contact Form for limit reached */}
-        {message.contactForm && (
-          <InlineContactForm />
-        )}
-
-        {/* Main Answer with inline GIF when applicable */}
-        {message.text && !message.contactForm && (
-          <div className={`p-4 rounded-xl prose text-gray-800 ${answerImages.length ? 'inline-images-hidden' : ''}`}>
-            <div ref={answerRef} className="answer-html" dangerouslySetInnerHTML={{
-              __html: safeRenderMarkdown(
-                renderIcons(
-                  renderTables(message.text, response?.tables || [])
-                )
-              )
-            }} />
-            {answerImages.length > 0 && !message.errorKind && (
-              <AnswerImagesCarousel images={answerImages} />
-            )}
-            {/* Error GIF based on error kind */}
-            {message.errorKind && (
-              <div className="px-4 mb-4 answer-gif-wrapper">
-                <img
-                  src={ERROR_GIFS[message.errorKind] || ERROR_GIFS.unknown_error}
-                  alt={message.errorKind.replace(/_/g, ' ')}
-                  className="answer-gif rounded-lg"
-                  onError={(e) => {
-                    const fallback = 'data:image/gif;base64,R0lGODlhAQABAPAAAP///wAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==';
-                    const el = e.currentTarget as HTMLImageElement;
-                    if (el.src !== fallback) el.src = fallback;
-                  }}
+        {/* Main Answer */}
+        {message.text && (() => {
+          const fullHtml = safeRenderMarkdown(
+            renderIcons(
+              renderTables(message.text, response?.tables || [])
+            )
+          );
+          const firstMatch = /<img[^>]*>/i.exec(fullHtml);
+          const beforeHtml = firstMatch ? fullHtml.slice(0, firstMatch.index || 0) : fullHtml;
+          const afterHtml = firstMatch ? fullHtml.slice(firstMatch.index || 0).replace(/<img[^>]*>/gi, '') : null;
+          return (
+            <div className="p-4 rounded-xl prose text-gray-800">
+              <div ref={answerRef} className="answer-html" dangerouslySetInnerHTML={{ __html: beforeHtml }} />
+              {answerImages.length > 0 && !message.errorKind && (
+                <AnswerImagesCarousel images={answerImages} />
+              )}
+              {afterHtml !== null && (
+                <div className="answer-html" dangerouslySetInnerHTML={{ __html: afterHtml }} />
+              )}
+              {/* Error GIF based on error kind */}
+              {message.errorKind && (
+                <div className="px-4 mb-4 answer-gif-wrapper">
+                  <img
+                    src={ERROR_GIFS[message.errorKind] || ERROR_GIFS.unknown_error}
+                    alt={message.errorKind.replace(/_/g, ' ')}
+                    className="answer-gif rounded-lg"
+                    onError={(e) => {
+                      const fallback = 'data:image/gif;base64,R0lGODlhAQABAPAAAP///wAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==';
+                      const el = e.currentTarget as HTMLImageElement;
+                      if (el.src !== fallback) el.src = fallback;
+                    }}
+                  />
+                </div>
+              )}
+              {/* Context GIF only when not an error */}
+              {message.id !== 1 && !message.errorKind && (
+                <AnswerGifSmart
+                  query={message.query}
+                  answer={message.text}
+                  related={response?.related_content}
+                  hasInlineImage={hasInlineImage}
                 />
-              </div>
-            )}
-            {/* Context GIF only when not an error */}
-            {message.id !== 1 && !message.errorKind && (
-              <AnswerGifSmart
-                query={message.query}
-                answer={message.text}
-                related={response?.related_content}
-                hasInlineImage={hasInlineImage}
-              />
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          );
+        })()}
 
         {/* Action Buttons - Hide for welcome message */}
-        {message.text && !message.contactForm && message.id !== 1 && !message.errorKind && (
+        {message.text && message.id !== 1 && !message.errorKind && (
           <MessageActions message={message} />
         )}
 
@@ -1642,193 +1637,7 @@ const BotMessage: React.FC<{
 };
 
 // Inline contact form component used when daily limit is reached
-const InlineContactForm: React.FC = () => {
-  const [form, setForm] = useState({ name: '', email: '', phone: '', company: '', message: '' });
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState('');
-  const [captchaText, setCaptchaText] = useState('');
-  const [captchaInput, setCaptchaInput] = useState('');
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  const makeText = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-    let out = '';
-    for (let i = 0; i < 5; i++) out += chars[Math.floor(Math.random() * chars.length)];
-    return out;
-  };
-
-  const drawCaptcha = (text: string) => {
-    const canvas = canvasRef.current; if (!canvas) return;
-    const ctx = canvas.getContext('2d'); if (!ctx) return;
-    const W = canvas.width, H = canvas.height;
-    ctx.clearRect(0, 0, W, H);
-    ctx.strokeStyle = '#c0c4cc'; ctx.lineWidth = 1;
-    for (let y = 5; y < H; y += 8) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-    for (let i = 0; i < 15; i++) { ctx.fillStyle = `rgba(0,0,0,${Math.random()*0.12})`; ctx.fillRect(Math.random()*W, Math.random()*H, 2, 2); }
-    const xStart = 10; const gap = 24;
-    for (let i = 0; i < text.length; i++) {
-      const ch = text[i];
-      const angle = (Math.random() - 0.5) * 0.45;
-      ctx.save();
-      ctx.translate(xStart + i * gap, H/2 + 6);
-      ctx.rotate(angle);
-      ctx.font = 'bold 22px sans-serif';
-      ctx.fillStyle = '#1f4ea3';
-      ctx.fillText(ch, 0, 0);
-      ctx.restore();
-    }
-    ctx.strokeStyle = '#d11'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(4, 6 + Math.random()*8); ctx.lineTo(W-4, H-6 - Math.random()*8); ctx.stroke();
-  };
-
-  const genCaptcha = useCallback(() => {
-    const t = makeText();
-    setCaptchaText(t);
-    setCaptchaInput('');
-    setTimeout(() => drawCaptcha(t), 0);
-  }, []);
-  useEffect(() => { genCaptcha(); }, [genCaptcha]);
-
-  const [hookUrl] = useState<string>(() => resolveWebhook());
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    if (!form.name.trim() || !form.email.trim() || !form.phone.trim()) { setError('Please fill required fields.'); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { setError('Enter a valid email.'); return; }
-    if (captchaInput.trim().toLowerCase() !== captchaText.toLowerCase()) { setError('Captcha answer is incorrect.'); return; }
-    setSubmitting(true);
-    try {
-      const payload = { subject: 'contact forms Husqy', name: form.name, email: form.email, mobile: form.phone, company: form.company, message: form.message };
-      const hook = (hookUrl || resolveWebhook()).trim();
-      const candidates = [hook, '/api/contact', '/contact', '/api/form', '/form', '/api/lead', '/lead'].filter(Boolean);
-      let delivered = false;
-      let lastError: any = null;
-      for (const endpoint of candidates) {
-        try {
-          const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-          if (res.ok) { delivered = true; break; }
-          lastError = new Error(`HTTP ${res.status}`);
-        } catch (e) { lastError = e; }
-      }
-      if (!delivered) {
-        const subject = encodeURIComponent('New contact from Husqy chat');
-        const body = encodeURIComponent(
-          `Name: ${form.name}\nEmail: ${form.email}\nPhone: ${form.phone}\nCompany: ${form.company}\nMessage: ${form.message}`
-        );
-        const mailto = `mailto:sales@hutechsolutions.com?subject=${subject}&body=${body}`;
-        const a = document.createElement('a');
-        a.href = mailto; a.style.display = 'none'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setSuccess(true);
-        setForm({ name: '', email: '', phone: '', company: '', message: '' });
-        genCaptcha();
-        setCaptchaInput('');
-        return;
-      }
-      setSuccess(true);
-      setForm({ name: '', email: '', phone: '', company: '', message: '' });
-      genCaptcha();
-      setCaptchaInput('');
-    } catch (err) {
-      setError('Could not submit. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const Field: React.FC<{
-    id: string; type?: string; label: string; value: string; onChange: (v: string) => void; icon: React.ReactNode; autoComplete?: string; required?: boolean; inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
-  }> = ({ id, type = 'text', label, value, onChange, icon, autoComplete, required, inputMode }) => (
-    <div className="relative">
-      <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">{icon}</div>
-      <input
-        id={id}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        autoComplete={autoComplete}
-        required={required}
-        inputMode={inputMode}
-        className="peer w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 py-3 text-sm text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        placeholder=" "
-      />
-      <label htmlFor={id} className="pointer-events-none absolute left-10 top-1/2 -translate-y-1/2 bg-white px-1 text-sm text-gray-500 transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-gray-400 peer-focus:-top-2 peer-focus:text-xs peer-focus:text-blue-600 peer-placeholder-shown:-translate-y-1/2 peer-focus:translate-y-0 peer-[:not(:placeholder-shown)]:-top-2 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:text-gray-600 peer-[:not(:placeholder-shown)]:translate-y-0">
-        {label}
-      </label>
-    </div>
-  );
-
-  return (
-    <div className="px-4">
-      <div className="mx-auto max-w-3xl rounded-2xl border border-gray-100 bg-white p-6 shadow-xl">
-        {success ? (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">Thanks! Your details were sent to HR. We will contact you soon.</div>
-        ) : (
-          <form onSubmit={onSubmit} className="space-y-6">
-            <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Contact us</h3>
-                <p className="text-sm text-gray-500">We typically respond within one business day.</p>
-              </div>
-              <div className="hidden text-sm text-gray-500 sm:block">
-                <div className="flex items-center gap-4">
-                  <a href="mailto:sales@hutechsolutions.com" className="hover:text-gray-700">sales@hutechsolutions.com</a>
-                  <span className="text-gray-300">|</span>
-                  <span>8867487771</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field id="name" label="Full name*" value={form.name} onChange={(v) => setForm({ ...form, name: v })} icon={<User className="h-4 w-4" />} autoComplete="name" required />
-              <Field id="email" type="email" label="Email*" value={form.email} onChange={(v) => setForm({ ...form, email: v })} icon={<Mail className="h-4 w-4" />} autoComplete="email" required />
-              <Field id="company" label="Company" value={form.company} onChange={(v) => setForm({ ...form, company: v })} icon={<Building className="h-4 w-4" />} autoComplete="organization" />
-              <Field id="phone" type="tel" label="Phone*" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} icon={<Phone className="h-4 w-4" />} autoComplete="tel" required inputMode="tel" />
-            </div>
-
-            <div className="relative">
-              <textarea
-                id="message"
-                rows={4}
-                value={form.message}
-                onChange={(e) => setForm({ ...form, message: e.target.value })}
-                className="peer w-full rounded-xl border border-gray-200 bg-white p-3 pt-5 text-sm text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder=" "
-              />
-              <label htmlFor="message" className="pointer-events-none absolute left-3 top-3 bg-white px-1 text-sm text-gray-500 transition-all peer-placeholder-shown:top-3 peer-focus:-top-2 peer-focus:text-xs peer-focus:text-blue-600 peer-[:not(:placeholder-shown)]:-top-2 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:text-gray-600">Message</label>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <button type="button" onClick={genCaptcha} aria-label="Refresh captcha" className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white p-2 text-gray-600 hover:bg-gray-50 hover:text-gray-800">
-                <RefreshCw className="h-5 w-5" />
-              </button>
-              <canvas ref={canvasRef} width={160} height={44} className="rounded-md border border-gray-200" />
-              <input
-                className="w-40 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter code"
-                value={captchaInput}
-                onChange={(e) => setCaptchaInput(e.target.value)}
-              />
-            </div>
-
-            {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-3 text-sm font-medium text-white shadow-lg transition hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-400"
-              >
-                {submitting ? 'Submitting…' : 'Submit'}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
-  );
-};
+const InlineContactForm: React.FC = () => null;
 
 
 const RelatedContentCarousel: React.FC<{ items: RelatedContent[] }> = ({ items }) => {
@@ -1950,7 +1759,21 @@ const RelatedContentCarousel: React.FC<{ items: RelatedContent[] }> = ({ items }
 const AnswerImagesCarousel: React.FC<{ images: string[] }> = ({ images }) => {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const [validImages, setValidImages] = useState<string[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Preload and keep only valid image URLs
+  useEffect(() => {
+    let isMounted = true;
+    const uniq = Array.from(new Set(images)).filter(Boolean);
+    const preload = (src: string) => new Promise<boolean>((resolve) => { const im = new Image(); im.onload = () => resolve(true); im.onerror = () => resolve(false); im.src = src; });
+    (async () => {
+      const pairs = await Promise.all(uniq.map(async (u) => [(await preload(u)), u] as const));
+      const ok = pairs.filter(p => p[0]).map(p => p[1]);
+      if (isMounted) setValidImages(ok);
+    })();
+    return () => { isMounted = false; };
+  }, [images]);
 
   const onScroll = () => {
     const el = containerRef.current; if (!el) return;
@@ -1961,9 +1784,12 @@ const AnswerImagesCarousel: React.FC<{ images: string[] }> = ({ images }) => {
     const el = containerRef.current; if (!el) return;
     el.addEventListener('scroll', onScroll); onScroll();
     return () => el.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [validImages.length]);
 
   const scrollBy = (dx: number) => containerRef.current?.scrollBy({ left: dx, behavior: 'smooth' });
+
+  // If none are valid, render nothing (avoid blank cards)
+  if (!validImages.length) return null;
 
   return (
     <div className="answer-image-carousel-wrapper">
@@ -1971,9 +1797,14 @@ const AnswerImagesCarousel: React.FC<{ images: string[] }> = ({ images }) => {
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
       </button>
       <div ref={containerRef} className="answer-images-horizontal">
-        {images.map((src, i) => (
+        {validImages.map((src, i) => (
           <div key={`${src}-${i}`} className="answer-image-card">
-            <img src={src} alt={`image ${i+1}`} className="answer-image" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+            <img
+              src={src}
+              alt={`image ${i+1}`}
+              className="answer-image"
+              onError={() => setValidImages(prev => prev.filter(s => s !== src))}
+            />
           </div>
         ))}
       </div>

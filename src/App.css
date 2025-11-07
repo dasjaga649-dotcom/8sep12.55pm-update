@@ -845,6 +845,8 @@ html, body, #root { max-width: 100%; overflow-x: hidden; width: 100%; }
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 .answer-image { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Ensure carousel images are not constrained by .prose img defaults */
+.prose .answer-image { width: 100%; height: 100%; object-fit: cover; margin: 0; border-radius: 0; }
 @media (max-width: 640px) { .answer-image-card { width: 10rem; height: 6.5rem; } }
 
 .chat-searching .chat-search-input {
@@ -1019,6 +1021,25 @@ html, body, #root { max-width: 100%; overflow-x: hidden; width: 100%; }
 
 /* Show scrollbar on hover for question cards */
 .question-cards-scroll:hover { scrollbar-width: thin; scrollbar-color: #e2e8f0 transparent; }
+
+/* Touch devices (no hover): show scrollbars by default so users see affordance */
+@media (hover: none) and (pointer: coarse) {
+  .related-content-horizontal-container,
+  .answer-images-horizontal {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+  .question-cards-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #e2e8f0 transparent;
+  }
+  .related-content-horizontal-container::-webkit-scrollbar-thumb,
+  .answer-images-horizontal::-webkit-scrollbar-thumb { background: #cbd5e1; }
+  .question-cards-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; }
+  .related-content-horizontal-container::-webkit-scrollbar-track,
+  .answer-images-horizontal::-webkit-scrollbar-track,
+  .question-cards-scroll::-webkit-scrollbar-track { background: #e5e7eb; }
+}
 
 .question-card-horizontal {
   background: white;
